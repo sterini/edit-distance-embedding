@@ -1,0 +1,177 @@
+import numpy as np
+import h5py
+import os
+from utils import levenshtein_distance, generate_edit_mask, apply_edit
+
+def generate_sequence(length=100):
+    return np.random.randint(0, 2, length)
+
+def generate_datasets(num_sequences=100, sequence_length=100):
+    datasets = {}
+    mean_distances = []
+    variance_distances = []
+    K_values = np.arange(0.9 * sequence_length, sequence_length + 1, 1)
+
+    for K in K_values:
+        K = int(K)
+        datasets[K] = []
+        edit_distances = []
+        for _ in range(num_sequences):
+            x = generate_sequence(sequence_length)
+            mask = generate_edit_mask(sequence_length, K)
+            y = apply_edit(x, mask)
+            edit_distance = levenshtein_distance(x, y)
+            datasets[K].append({"original": x.tolist(), "edited": y.tolist(), "mask": mask.tolist(), "distance": int(edit_distance)})
+            edit_distances.append(edit_distance)
+        
+        mean_distances.append(np.mean(edit_distances))
+        variance_distances.append(np.var(edit_distances))
+
+    return datasets, K_values, mean_distances, variance_distances
+
+# Example usage
+num_sequences = 10000
+sequence_length = 100
+
+datasets, K_values, mean_distances, variance_distances = generate_datasets(num_sequences, sequence_length)
+
+# Save the datasets to separate files
+for K in datasets:
+    filename = f"edit_distance_dataset_K_{K}.h5"
+    with h5py.File(filename, 'w') as f:
+        for i, entry in enumerate(datasets[K]):
+            grp = f.create_group(f"entry_{i}")
+            grp.create_dataset("original", data=entry["original"])
+            grp.create_dataset("edited", data=entry["edited"])
+            grp.create_dataset("mask", data=entry["mask"])
+            grp.create_dataset("distance", data=entry["distance"])
+
+print("Datasets saved successfully.")
+
+# """
+# In this file we want to create a dataset for small edit distance
+
+# this is because it is generally hard to do an embedding for small edit distance
+
+# """
+
+# import numpy as np
+# import os   
+# import h5py
+# import matplotlib.pyplot as plt
+
+# def levenshteinDistance(s1, s2):
+#     if len(s1) > len(s2):
+#         s1, s2 = s2, s1
+
+#     distances = range(len(s1) + 1)
+#     for i2, c2 in enumerate(s2):
+#         distances_ = [i2+1]
+#         for i1, c1 in enumerate(s1):
+#             if c1 == c2:
+#                 distances_.append(distances[i1])
+#             else:
+#                 distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+#         distances = distances_
+#     return distances[-1]
+
+# def flatten_upper_triangular_efficient(U):
+#     """Flatten an upper triangular matrix in the efficient structured order."""
+#     N = U.shape[0]
+#     flat_U = []
+    
+#     for K in range(N):
+#         flat_U.extend(int(U[i, K]) for i in range(K+1))  # Ensure elements are Python int
+    
+#     return flat_U
+
+# def reconstruct_leading_principal_submatrix(flat_U, K):
+#     """Reconstruct a K x K upper triangular submatrix from the structured flattened vector."""
+#     U_K = np.zeros((K, K))
+#     index = 0
+#     for col in range(K):
+#         for row in range(col+1):
+#             U_K[row, col] = flat_U[index]
+#             index += 1
+#     return U_K
+
+# def apply_edit(x, s):
+#     # pointer in the original sequence
+#     p = 0
+#     y = []  
+#     for i in range(len(s)): 
+#         if s[i] == 0:
+#             y.append(x[p])
+#             p += 1
+#         elif s[i] == 1:
+#             p += 1
+#         elif s[i] == 2:
+#             y.append(0)
+#         elif s[i] == 3:
+#             y.append(1)
+#         # Ensure we don't go out of bounds
+#         if p >= len(x):
+#             break
+#     return np.array(y)
+
+# def generate_sequence(length=100):
+#     return np.random.randint(0, 2, length)
+
+# def generate_edit_mask(length, K):
+#     N = length
+#     mask = np.random.choice([0, 1, 2, 3], N, p=[K/N, (N-K)/2/N, (N-K)/4/N, (N-K)/4/N])
+#     return mask
+
+# def generate_datasets(num_sequences=100, sequence_length=100):
+#     datasets = {}
+#     mean_distances = []
+#     variance_distances = []
+#     # change here for more values
+#     K_values = np.arange(0.5 * sequence_length, sequence_length + 1, 1)
+
+#     for K in K_values:
+#         K = int(K)
+#         datasets[K] = []
+#         edit_distances = []
+#         for _ in range(num_sequences):
+#             x = generate_sequence(sequence_length)
+#             mask = generate_edit_mask(sequence_length, K)
+#             y = apply_edit(x, mask)
+#             # in case there is another mask with less weight
+#             edit_distance = levenshteinDistance(x, y)
+#             datasets[K].append({"original": x.tolist(), "edited": y.tolist(), "mask": mask.tolist(), "distance": int(edit_distance)})
+#             edit_distances.append(edit_distance)
+        
+#         mean_distances.append(np.mean(edit_distances))
+#         variance_distances.append(np.var(edit_distances))
+
+#     return datasets, K_values, mean_distances, variance_distances
+
+# # Example usage
+# num_sequences = 10000
+# sequence_length = 100
+
+# datasets, K_values, mean_distances, variance_distances = generate_datasets(num_sequences, sequence_length)
+
+# # Save the datasets to separate files
+# for K in datasets:
+#     filename = f"edit_distance_dataset_K_{K}_num_sequences{num_sequences}.h5"
+#     with h5py.File(filename, 'w') as f:
+#         for i, entry in enumerate(datasets[K]):
+#             grp = f.create_group(f"entry_{i}")
+#             grp.create_dataset("original", data=entry["original"])
+#             grp.create_dataset("edited", data=entry["edited"])
+#             grp.create_dataset("mask", data=entry["mask"])
+#             grp.create_dataset("distance", data=entry["distance"])
+
+# print("Datasets saved successfully.")
+
+# # Plot mean and variance of the edit distance as a function of K
+# plt.figure()
+# plt.plot(K_values, mean_distances, label='Mean Edit Distance')
+# plt.plot(K_values, variance_distances, label='Variance of Edit Distance')
+# plt.xlabel('K')
+# plt.ylabel('Edit Distance')
+# plt.title('Mean and Variance of Edit Distance as a Function of K')
+# plt.legend()
+# plt.show()
